@@ -48,7 +48,7 @@ module Clock_design(
        begin    count = 0;  clkcount = ~clkcount; end
    end
    
-   assign flagled = clkcount;
+   assign flagled = alarm_set;
    
    reg clklook;
    integer count1 = 0;     //为led灯分频，方便观看
@@ -65,22 +65,60 @@ module Clock_design(
     
     integer Sb = 0,Se = 0,Mb = 0,Me = 0,Hb = 0,He = 0; 
           // 小时分钟秒的 第一位和第二位
+    integer Ahb,Ahe,Amb,Ame;  //寄存器用于储存闹钟的小时和分 
     always@(posedge clkcount)    //每当秒的个位数改变 就要判断其他位置的情况
     begin
-        if(Se == 9)          //秒第二位逢10进1
-              begin Se <= 0; Sb <= Sb + 1; end
-        if(Sb == 5 && Se == 9)         //秒第一位逢60进1
+        if(Se >= 9)          //秒第二位逢10进1
+            begin Se <= 0; Sb <= Sb + 1; end
+        if(Sb >= 5 && Se >= 9)         //秒第一位逢60进1
               begin Sb <= 0; Me <= Me + 1; end
-        if(Me == 9 && Sb == 5 && Se == 9)             //分第二位
+        if(Me >= 9 && Sb >= 5 && Se >= 9)             //分第二位
               begin Me <= 0; Mb <= Mb + 1; end
-        if(Mb == 5 && Me == 9  && Sb == 5 && Se == 9)           //分第一位
+        if(Mb >= 5 && Me >= 9  && Sb >= 5 && Se >= 9)           //分第一位
               begin Me <= 0; Mb <= 0 ; He <= He + 1;  end
-        if(He == 9 && Mb == 5 && Me == 9  && Sb == 5 && Se == 9)
+        if(He >= 9 && Mb >= 5 && Me >= 9  && Sb >= 5 && Se >= 9)
               begin He <= 0; Hb <= Hb + 1; end
-        if(Hb == 2 && He == 3 && Mb == 5 && Me == 9  && Sb == 5 && Se == 9)
+        if(Hb >= 2 && He >= 3 && Mb >= 5 && Me >= 9  && Sb >= 5 && Se >= 9  && T24_12 == 0)
          //小时第一位变成2 第二位变成4， 即24点 全部置为0
-              begin Hb <= 0; He <= 0; end  
-         else Se = Se + 1 ;     
+              begin Hb <= 0; He <= 0; end
+        if(Hb >= 1 && He >= 1 && Mb >= 5 && Me >= 9  && Sb >= 5 && Se >= 9  && T24_12 == 1)
+            //当12小时制打开 小时到12就需要置零
+              begin Hb <= 0; He <= 0; end       
+        else Se = Se + 1 ;  
+        //以下为设置时间 内容，
+         if(Hour_set)   //小时设置  如果小时设置开关打开则每秒+1加一小时
+         begin 
+            He <= He + 1;    
+            if(He >= 9)
+            begin Hb <= Hb + 1; He <= 0; end
+            if(Hb >= 2 && He >=3 && T24_12 == 0) //24小时制
+            begin Hb<=0;He<=0;end 
+            if(Hb >= 1 && He >=1 && T24_12 == 1) //12小时制
+            begin Hb<=0;He<=0;end 
+         end
+         if(Minutes_set)  //同理小时
+         begin 
+         Me <= Me + 1;
+         if(Me >= 9)
+         begin Mb <= Mb + 1; Me <= 0; end
+         if(Mb >= 5 && Me >=9)
+         begin Mb<=0;Me<=0;end 
+         end
+         if(Second_set)    //秒置零
+         begin Se <= 0; Sb <= 0; end
+         
+         if(alarm_set)   //设置闹钟， 把当前时间设定为闹钟，故使用者需打开闹钟设置
+         begin           // 再通过小时分钟设置设定需要的闹钟
+               Ahb <= Hb;
+               Ahe <= He;
+               Amb <= Mb;
+               Ame <= Me;
+         end
+         //当小时与分都满足闹钟的小时和分 且不是闹钟设置模式 就响起闹钟
+         if(Ahb == Hb && Ahe == He && Amb == Mb && Ame == Me)
+               alarm <= 1;
+         else 
+               alarm <= 0;
     end
     
     integer num = 0;   //用于显示数字
@@ -118,6 +156,5 @@ module Clock_design(
     10: countled = 8'b00000011;   //0
     99: countled = 8'b11101101;  //冒号
     endcase
-//以下为设置时间 内容，
 
 endmodule
