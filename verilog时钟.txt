@@ -1,0 +1,123 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 2018/06/17 16:25:38
+// Design Name: 
+// Module Name: Clock_design
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module Clock_design(
+   input Hour_set,           //用于设置小时+1的开关 
+   input Minutes_set,        //分钟+1
+   input Second_set,         //秒置0
+   
+   input T24_12,             //24小时置转12小时
+   input alarm_set,          //设置闹钟
+   
+   input clock,              //开发板时钟
+   
+   output reg [7:0]LED,          //8个led灯
+   output reg [7:0]countled,     //数码管
+   output reg  alarm,              //闹钟信号
+   
+   output flagled
+    );
+    
+   reg   clkcount;
+   integer count = 0;
+   integer T = 100000000;   //100Mhz
+   
+    always@(posedge clock)   //clkcount为分频成秒，每秒 clk都会沿正向移动一次
+        begin
+        count = count + 1;
+        if(count == (T/2))
+       begin    count = 0;  clkcount = ~clkcount; end
+   end
+   
+   assign flagled = clkcount;
+   
+   reg clklook;
+   integer count1 = 0;     //为led灯分频，方便观看
+   always@(posedge clock)
+    begin
+     count1 = count1 + 1;
+      if(count1 == 100000)
+       begin            
+        clklook = ~clklook;
+        count1 = 0;
+       end
+    end
+    
+    
+    integer Sb = 0,Se = 0,Mb = 0,Me = 0,Hb = 0,He = 0; 
+          // 小时分钟秒的 第一位和第二位
+    always@(posedge clkcount)    //每当秒的个位数改变 就要判断其他位置的情况
+    begin
+        if(Se == 9)          //秒第二位逢10进1
+              begin Se <= 0; Sb <= Sb + 1; end
+        if(Sb == 5 && Se == 9)         //秒第一位逢60进1
+              begin Sb <= 0; Me <= Me + 1; end
+        if(Me == 9 && Sb == 5 && Se == 9)             //分第二位
+              begin Me <= 0; Mb <= Mb + 1; end
+        if(Mb == 5 && Me == 9  && Sb == 5 && Se == 9)           //分第一位
+              begin Me <= 0; Mb <= 0 ; He <= He + 1;  end
+        if(He == 9 && Mb == 5 && Me == 9  && Sb == 5 && Se == 9)
+              begin He <= 0; Hb <= Hb + 1; end
+        if(Hb == 2 && He == 3 && Mb == 5 && Me == 9  && Sb == 5 && Se == 9)
+         //小时第一位变成2 第二位变成4， 即24点 全部置为0
+              begin Hb <= 0; He <= 0; end  
+         else Se = Se + 1 ;     
+    end
+    
+    integer num = 0;   //用于显示数字
+    integer countcase = -1;
+    
+    always@(posedge clklook)
+    begin
+        countcase = countcase + 1;  
+        case(countcase)
+         0: begin LED = 8'b11_1_11_1_10; num = Se; end //秒
+         1: begin LED = 8'b11_1_11_1_01; num = Sb; end
+         2: begin LED = 8'b11_1_11_0_11; num = 99; end //表示小时和分之间的冒号
+         3: begin LED = 8'b11_1_10_1_11; num = Me; end //分
+         4: begin LED = 8'b11_1_01_1_11; num = Mb; end
+         5: begin LED = 8'b11_0_11_1_11; num = 99; end
+         6: begin LED = 8'b10_1_11_1_11; num = He; end
+         7: begin LED = 8'b01_1_11_1_11; num = Hb; end
+         8: countcase = -1;      
+         endcase 
+        
+    end
+    
+    always@(num)
+      case(num)
+    0: countled = 8'b00000011;   //0
+    1: countled = 8'b10011111;   //1
+    2: countled = 8'b00100101;   //2
+    3: countled = 8'b00001101;   //3
+    4: countled = 8'b10011001;   //4
+    5: countled = 8'b01001001;   //5
+    6: countled = 8'b01000001;   //6
+    7: countled = 8'b00011111;   //7
+    8: countled = 8'b00000001;   //8
+    9: countled = 8'b00001001;   //9
+    10: countled = 8'b00000011;   //0
+    99: countled = 8'b11101101;  //冒号
+    endcase
+//以下为设置时间 内容，
+
+endmodule
